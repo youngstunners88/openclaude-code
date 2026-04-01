@@ -8,7 +8,7 @@ const memory = require('./memory');
 const CONFIG = {
   openrouter: 'https://openrouter.ai/api/v1/chat/completions',
   defaultModel: 'nvidia/nemotron-3-super-120b-a12b:free',
-  maxTokens: 4096,
+  maxTokens: 8192,
 };
 
 // Tools
@@ -36,7 +36,7 @@ async function llm(messages, key, model) {
 async function agent(prompt, key, model) {
   if(!prompt||!prompt.trim())return 'Please provide a prompt.';
   if(!key)return 'API key required.';
-  const msgs=[{role:'system',content:'You are OpenClaude Code. Be concise. Tools: '+Object.entries(tools).map(([n,t])=>n+': '+t.desc).join(', ')},{role:'user',content:prompt}];
+  const msgs=[{role:'system',content:'You are OpenClaude Code, an expert coding agent. Rules: 1) Plan before coding 2) Verify after changes 3) Fix structural issues not just symptoms 4) Be concise 5) Tools: '+Object.entries(tools).map(([n,t])=>n+': '+t.desc).join(', ')},{role:'user',content:prompt}];
   for(let i=0;i<5;i++){
     try{
       const r=await llm(msgs,key,model);
