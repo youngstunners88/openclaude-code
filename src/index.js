@@ -13,8 +13,8 @@ const CONFIG = {
 // Tools
 const tools = {
   read_file: { desc: 'Read file', params: {path:'string'}, run: p => { try{return{ok:true,data:fs.readFileSync(p.path,'utf8').substring(0,5000)};}catch(e){return{ok:false,err:e.message};} }},
-  write_file: { desc: 'Write file', params: {path:'string',content:'string'}, run: p => { try{fs.mkdirSync(path.dirname(p.path),{recursive:true});fs.writeFileSync(p.path,p.content);return{ok:true};}catch(e){return{ok:false,err:e.message};} }},
-  run_cmd: { desc: 'Run command', params: {cmd:'string'}, run: p => { try{return{ok:true,data:execSync(p.cmd,{timeout:30000}).toString().substring(0,3000)};}catch(e){return{ok:false,err:e.message};} }},
+  write_file: { desc: 'Write file', params: {path:'string',content:'string'}, run: p => { try{if(p.path.match(/^\/etc\/|^\/proc\/|^\/sys\/|^\/dev\//))return{ok:false,err:'Protected path'};fs.mkdirSync(path.dirname(p.path),{recursive:true});fs.writeFileSync(p.path,p.content);return{ok:true};}catch(e){return{ok:false,err:e.message};} }},
+  run_cmd: { desc: 'Run command', params: {cmd:'string'}, run: p => { try{if(p.cmd.match(/[;&|`$(){}]/))return{ok:false,err:'Dangerous characters blocked'};return{ok:true,data:execSync(p.cmd,{timeout:30000,shell:'/bin/sh'}).toString().substring(0,3000)};}catch(e){return{ok:false,err:e.message};} }},
 };
 
 async function llm(messages, key, model) {
@@ -26,12 +26,17 @@ async function llm(messages, key, model) {
 }
 
 async function agent(prompt, key, model) {
+  if(!prompt||!prompt.trim())return 'Please provide a prompt.';
+  if(!key)return 'API key required.';
   const msgs=[{role:'system',content:'You are OpenClaude Code. Be concise. Tools: '+Object.entries(tools).map(([n,t])=>n+': '+t.desc).join(', ')},{role:'user',content:prompt}];
   for(let i=0;i<5;i++){
-    const r=await llm(msgs,key,model);
-    const m=r.content.match(/tool\[(\w+)\]\s*(\{[^}]+\})/);
-    if(m&&tools[m[1]]){const t=tools[m[1]].run(JSON.parse(m[2]));msgs.push({role:'assistant',content:r.content},{role:'user',content:'Result: '+JSON.stringify(t)});continue;}
-    return r.content;
+    try{
+      const r=await llm(msgs,key,model);
+      if(!r||!r.content)continue;
+      const m=r.content.match(/tool\[(\w+)\]\s*(\{[^}]+\})/);
+      if(m&&tools[m[1]]){const t=tools[m[1]].run(JSON.parse(m[2]));msgs.push({role:'assistant',content:r.content},{role:'user',content:'Result: '+JSON.stringify(t)});continue;}
+      return r.content;
+    }catch(e){return 'Error: '+e.message;}
   }
   return 'Max iterations';
 }
