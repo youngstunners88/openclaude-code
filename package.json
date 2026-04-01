@@ -1,17 +1,34 @@
 {
   "name": "openclaude-code",
-  "version": "1.0.2",
-  "description": "Autonomous senior-dev agent with TRIBE v2 brain scoring, TurboQuant, CLAUDE.md, free models",
+  "version": "2.0.0",
+  "description": "Production-ready AI coding agent with free models via OpenRouter, security hardening, and TRIBE v2 brain scoring",
   "main": "src/index.js",
+  "bin": {
+    "openclaude-code": "./src/index.js"
+  },
   "scripts": {
     "start": "node src/index.js",
     "dev": "node src/index.js --dev",
     "compress": "node src/compress.js",
-    "tribe-test": "node -e 'require(\"./src/index\").testTribe()'"
+    "tribe-test": "node -e 'require(\"./src/index\").testTribe()'",
+    "test": "node src/index.js --test",
+    "help": "node src/index.js --help"
   },
+  "keywords": [
+    "ai",
+    "coding-agent",
+    "openrouter",
+    "claude",
+    "llm",
+    "automation"
+  ],
+  "author": "",
+  "license": "MIT",
   "dependencies": {
     "openai": "^4.0.0",
     "@huggingface/inference": "^2.7.0"
   },
-  "license": "MIT"
+  "engines": {
+    "node": ">=16.0.0"
+  }
 }
