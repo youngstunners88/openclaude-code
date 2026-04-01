@@ -114,7 +114,7 @@ async function agent(prompt, apiKey) {
           const args = JSON.parse(call.function.arguments);
           const result = await toolHandlers[fnName](args);
 
-          if (['write_file', 'run_cmd'].includes(fnName)) {
+          if (['write_file', 'run_cmd', 'git_commit'].includes(fnName)) {
             const brain = await toolHandlers.brain_score({ input: JSON.stringify(result) });
             messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify({ ...result, brainScore: brain.data }) });
           } else {
