@@ -1,10 +1,12 @@
 {
   "name": "openclaude-code",
-  "version": "1.0.1",
-  "description": "AI coding agent with free models, TRIBE v2 brain scoring, TurboQuant ready",
+  "version": "1.0.2",
+  "description": "Autonomous senior-dev agent with TRIBE v2 brain scoring, TurboQuant, CLAUDE.md, free models",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
+    "dev": "node src/index.js --dev",
+    "compress": "node src/compress.js",
     "tribe-test": "node -e 'require(\"./src/index\").testTribe()'"
   },
   "dependencies": {

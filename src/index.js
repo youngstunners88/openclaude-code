@@ -10,7 +10,7 @@ const CONFIG = {
   defaultModel: 'nvidia/nemotron-3-super-120b-a12b:free',
   maxTokens: 8192,
   hfToken: process.env.HF_TOKEN,
-  turboQuantEnabled: false,
+  turboQuantEnabled: process.env.TURBOQUANT_ENABLED === "true",
   localBackend: process.env.LOCAL_BACKEND || null,
 };
 
@@ -20,7 +20,7 @@ const CLAUDE_OVERRIDES = fs.existsSync(path.join(__dirname, '../CLAUDE.md'))
 
 const SYSTEM_PROMPT = `You are OpenClaude Code — autonomous senior-dev coding agent.
 ${CLAUDE_OVERRIDES}
-Rules: 1) Plan before coding 2) Verify after changes 3) Fix structural issues 4) Be concise 5) Use tools`;
+Leonxlnx ULTRAPLAN active: Break tasks into phases. Output plan until user says go. Brain-align via TRIBE v2. Rules: 1) Plan before coding 2) Verify after changes 3) Fix structural issues 4) Be concise 5) Use tools`;
 
 const openai = new OpenAI({
   baseURL: CONFIG.localBackend || CONFIG.openrouter,
@@ -95,7 +95,7 @@ async function agent(prompt, apiKey) {
     { role: 'user', content: prompt },
   ];
 
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < 12; i++) {
     try {
       const completion = await client.chat.completions.create({
         model: CONFIG.defaultModel,
