@@ -1,0 +1,16 @@
+{
+  "name": "openclaude-code",
+  "version": "1.0.0",
+  "description": "Our own AI coding agent with free models, TurboQuant compression, and full tool system",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node src/index.js --dev",
+    "compress": "node src/compress.js"
+  },
+  "dependencies": {
+    "openai": "^4.0.0"
+  },
+  "keywords": ["ai", "agent", "coding", "openrouter", "turboquant"],
+  "license": "MIT"
+}
