@@ -1,71 +1,39 @@
 # OpenClaude Code
 
-**Your own AI coding agent. Free models. Zero cost. Full control.**
+**AI coding agent using free models via OpenRouter. Prototype stage.**
 
-## What Is This?
+## What This Is
 
-OpenClaude Code is a private, open-source AI coding assistant that runs on FREE models via OpenRouter. No subscription. No data sent to third parties. You own everything.
+A working prototype AI coding agent that runs on free models (Nemotron 3 Super, Llama 3.3, Gemma 3). It can read/write files, run commands, fetch web content, and maintain memory across sessions.
 
-## Features
+## What This Is NOT
 
-- 🤖 **Free AI models** — Nemotron 3 Super (120B), Llama 3.3 (70B), Gemma 3 (27B), and 25+ more
-- 🔧 **10 tools** — File ops, shell commands, web fetch, git, memory, file listing
-- 💾 **Persistent memory** — Agent remembers across sessions
-- 🔒 **Security hardened** — Injection blocked, paths protected, input validated
-- ⚡ **Zero cost** — All models are free tier on OpenRouter
+- Not a replacement for Claude Code or Cursor
+- Not production-hardened (security needs work)
+- Not a full IDE — it's a CLI agent
 
-## Quick Start
+## Setup
 
 ```bash
-# Get a free OpenRouter key at https://openrouter.ai
-export OPENROUTER_API_KEY="your-key-here"
-
-# Ask it to do something
-node src/index.js "Read my package.json and suggest improvements"
-
-# Or use it programmatically
-const { agent } = require('./src');
-agent("Build me a landing page", process.env.OPENROUTER_API_KEY)
-  .then(console.log);
+npm install
+export OPENROUTER_API_KEY="your-free-key-from-openrouter.ai"
+node src/index.js "Read my package.json"
 ```
 
-## Tools
+## Tools (11)
 
-| Tool | Description |
-|------|-------------|
-| `read_file` | Read any file from the filesystem |
-| `write_file` | Write content to files (protected paths blocked) |
-| `run_cmd` | Execute shell commands (injection blocked) |
-| `web_fetch` | Fetch URL content |
-| `git_status` | Check git status |
-| `git_commit` | Stage and commit changes |
-| `memory_save` | Save to persistent memory |
-| `memory_load` | Load from persistent memory |
-| `memory_search` | Search across all memories |
-| `list_files` | List files in a directory |
+read_file, write_file, run_cmd, web_fetch, git_status, git_commit, memory_save, memory_load, memory_search, list_files, brain_score
 
-## Free Models Available
+## Known Issues
 
-28 free models via OpenRouter, including:
-- NVIDIA Nemotron 3 Super 120B
-- Meta Llama 3.3 70B
-- Google Gemma 3 27B
-- Nous Hermes 3 405B
+- Command execution needs sandboxing (currently string-filtered)
+- TRIBE v2 brain scoring uses fallback (needs HF_TOKEN for real scoring)
+- No automated tests yet
+- TurboQuant is planned, not implemented
 
-## Security
+## Status
 
-- ✅ Protected paths blocked (/etc, /proc, /sys)
-- ✅ Command injection blocked
-- ✅ Pipe/backtick injection blocked
-- ✅ Null parameter handling
-- ✅ API key never exposed in repo
-
-## Revenue Model
-
-1. **Internal** — We use it for our own operations (free)
-2. **SaaS** — Sell access to businesses ($29/month)
-3. **White-label** — License to agencies ($199/month)
-4. **API** — Pay-per-use via OpenRouter
+Working prototype. Not production-ready. Good foundation for further development.
 
 ## License
 
