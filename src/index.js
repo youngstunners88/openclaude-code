@@ -3,10 +3,11 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
+const memory = require('./memory');
 
 const CONFIG = {
   openrouter: 'https://openrouter.ai/api/v1/chat/completions',
-  defaultModel: 'nousresearch/hermes-3-llama-3.1-405b:free',
+  defaultModel: 'nvidia/nemotron-3-super-120b-a12b:free',
   maxTokens: 4096,
 };
 
@@ -15,6 +16,13 @@ const tools = {
   read_file: { desc: 'Read file', params: {path:'string'}, run: p => { try{return{ok:true,data:fs.readFileSync(p.path,'utf8').substring(0,5000)};}catch(e){return{ok:false,err:e.message};} }},
   write_file: { desc: 'Write file', params: {path:'string',content:'string'}, run: p => { try{if(p.path.match(/^\/etc\/|^\/proc\/|^\/sys\/|^\/dev\//))return{ok:false,err:'Protected path'};fs.mkdirSync(path.dirname(p.path),{recursive:true});fs.writeFileSync(p.path,p.content);return{ok:true};}catch(e){return{ok:false,err:e.message};} }},
   run_cmd: { desc: 'Run command', params: {cmd:'string'}, run: p => { try{if(p.cmd.match(/[;&|`$(){}]/))return{ok:false,err:'Dangerous characters blocked'};return{ok:true,data:execSync(p.cmd,{timeout:30000,shell:'/bin/sh'}).toString().substring(0,3000)};}catch(e){return{ok:false,err:e.message};} }},
+  web_fetch: { desc: 'Fetch URL content', params: {url:'string'}, run: p => { try{const d=execSync('curl -sL "'+p.url.replace(/"/g,'')+'" --max-time 15',{timeout:20000}).toString();return{ok:true,data:d.substring(0,5000)};}catch(e){return{ok:false,err:e.message};} }},
+  git_status: { desc: 'Git status', params: {dir:'string'}, run: p => { try{const d=execSync('cd '+(p.dir||'.')+' && git status',{timeout:10000}).toString();return{ok:true,data:d};}catch(e){return{ok:false,err:e.message};} }},
+  git_commit: { desc: 'Git add+commit', params: {msg:'string',dir:'string'}, run: p => { try{const d=execSync('cd '+(p.dir||'.')+' && git add . && git commit -m "'+p.msg.replace(/"/g,'')+'"',{timeout:10000}).toString();return{ok:true,data:d};}catch(e){return{ok:false,err:e.message};} }},
+  memory_save: { desc: 'Save to memory', params: {key:'string',value:'string'}, run: p => { try{memory.save(p.key,p.value);return{ok:true};}catch(e){return{ok:false,err:e.message};} }},
+  memory_load: { desc: 'Load from memory', params: {key:'string'}, run: p => { try{const m=memory.load(p.key);return{ok:true,data:m};}catch(e){return{ok:false,err:e.message};} }},
+  memory_search: { desc: 'Search memory', params: {query:'string'}, run: p => { try{const r=memory.search(p.query);return{ok:true,data:r};}catch(e){return{ok:false,err:e.message};} }},
+  list_files: { desc: 'List files', params: {dir:'string'}, run: p => { try{const d=execSync('ls -la '+(p.dir||'.')).toString();return{ok:true,data:d};}catch(e){return{ok:false,err:e.message};} }},
 };
 
 async function llm(messages, key, model) {
