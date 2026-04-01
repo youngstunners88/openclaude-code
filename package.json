@@ -1,16 +1,15 @@
 {
   "name": "openclaude-code",
-  "version": "1.0.0",
-  "description": "Our own AI coding agent with free models, TurboQuant compression, and full tool system",
+  "version": "1.0.1",
+  "description": "AI coding agent with free models, TRIBE v2 brain scoring, TurboQuant ready",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "node src/index.js --dev",
-    "compress": "node src/compress.js"
+    "tribe-test": "node -e 'require(\"./src/index\").testTribe()'"
   },
   "dependencies": {
-    "openai": "^4.0.0"
+    "openai": "^4.0.0",
+    "@huggingface/inference": "^2.7.0"
   },
-  "keywords": ["ai", "agent", "coding", "openrouter", "turboquant"],
   "license": "MIT"
 }
