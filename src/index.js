@@ -3,75 +3,130 @@ const OpenAI = require('openai');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { execFile, execFileSync } = require('child_process');
-const memory = require('./memory');
+const { execFileSync } = require('child_process');
+
+// Simple Memory System
+const memory = {
+  save: (k, v) => {
+    try {
+      const f = './memory.json';
+      let d = {};
+      if(fs.existsSync(f)) d = JSON.parse(fs.readFileSync(f));
+      d[k]=v;
+      fs.writeFileSync(f, JSON.stringify(d));
+    } catch(e){}
+  },
+  load: (k) => {
+    try {
+      const f = './memory.json';
+      if(!fs.existsSync(f)) return null;
+      const d = JSON.parse(fs.readFileSync(f));
+      return d[k] || null;
+    } catch(e){ return null; }
+  },
+  search: (q) => {
+    try {
+      const f = './memory.json';
+      if(!fs.existsSync(f)) return [];
+      const d = JSON.parse(fs.readFileSync(f));
+      return Object.keys(d).filter(k => d[k].includes(q));
+    } catch(e){ return []; }
+  }
+};
 
 const CONFIG = {
   openrouter: 'https://openrouter.ai/api/v1',
   defaultModel: 'nvidia/nemotron-3-super-120b-a12b:free',
-  maxTokens: 8192,
-  turboQuantEnabled: process.env.TURBOQUANT_ENABLED === 'true',
-  localBackend: process.env.LOCAL_BACKEND || null,
+  maxTokens: 8192
 };
 
-const SYSTEM_PROMPT = `You are OpenClaude Code — AI coding agent. Rules: 1) Plan before coding 2) Verify after 3) Be concise 4) Use tools`;
+const SYSTEM_PROMPT = "You are OpenClaude Code. Be concise. Use tools.";
 
-const openai = new OpenAI({
-  baseURL: CONFIG.localBackend || CONFIG.openrouter,
-  apiKey: process.env.OPENROUTER_API_KEY,
-  defaultHeaders: { 'X-Title': 'OpenClaude Code' },
-});
+let _openai = null;
+function getClient() {
+  if (!_openai) {
+    _openai = new OpenAI({
+      baseURL: CONFIG.openrouter,
+      apiKey: process.env.OPENROUTER_API_KEY,
+      defaultHeaders: { 'X-Title': 'OpenClaude Code' }
+    });
+  }
+  return _openai;
+}
 
+// Security: Command Allowlist
+const ALLOWED_COMMANDS = ['ls', 'cat', 'git', 'npm', 'node', 'curl', 'echo', 'pwd', 'find', 'grep', 'mkdir', 'cp', 'mv', 'touch', 'rm', 'head', 'tail', 'wc'];
+
+
+// Tool Definitions
 const tools = [
   { type: 'function', function: { name: 'read_file', description: 'Read file', parameters: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] } } },
-  { type: 'function', function: { name: 'write_file', description: 'Write file', parameters: { type: 'object', properties: { path: { type: 'string' }, content: { type: 'string' } }, required: ['path', 'content'] } } },
+  { type: 'function', function: { name: 'write_file', description: 'Write file', parameters: { type: 'object', properties: { path: { type: 'string'}, content: { type: 'string' } }, required: ['path', 'content'] } } },
   { type: 'function', function: { name: 'run_cmd', description: 'Run command', parameters: { type: 'object', properties: { cmd: { type: 'string' } }, required: ['cmd'] } } },
-  { type: 'function', function: { name: 'web_fetch', description: 'Fetch URL', parameters: { type: 'object', properties: { url: { type: 'string' } }, required: ['url'] } } },
   { type: 'function', function: { name: 'git_status', description: 'Git status', parameters: { type: 'object', properties: { dir: { type: 'string' } } } } },
   { type: 'function', function: { name: 'git_commit', description: 'Git commit', parameters: { type: 'object', properties: { msg: { type: 'string' }, dir: { type: 'string' } }, required: ['msg'] } } },
-  { type: 'function', function: { name: 'memory_save', description: 'Save to memory', parameters: { type: 'object', properties: { key: { type: 'string' }, value: { type: 'string' } }, required: ['key', 'value'] } } },
+  { type: 'function', function: { name: 'memory_save', description: 'Save memory', parameters: { type: 'object', properties: { key: { type: 'string' }, value: { type: 'string' } }, required: ['key', 'value'] } } },
   { type: 'function', function: { name: 'memory_load', description: 'Load memory', parameters: { type: 'object', properties: { key: { type: 'string' } }, required: ['key'] } } },
-  { type: 'function', function: { name: 'memory_search', description: 'Search memory', parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] } } },
   { type: 'function', function: { name: 'list_files', description: 'List files', parameters: { type: 'object', properties: { dir: { type: 'string' } } } } },
-  { type: 'function', function: { name: 'brain_score', description: 'Score output quality', parameters: { type: 'object', properties: { input: { type: 'string' } }, required: ['input'] } } },
+  { type: 'function', function: { name: 'brain_score', description: 'Score code', parameters: { type: 'object', properties: { input: { type: 'string' } }, required: ['input'] } } }
 ];
-
+// Tool Handlers
 const toolHandlers = {
-  read_file: async (p) => { try { if (!p.path || typeof p.path !== 'string') return { ok: false, err: 'Invalid path' }; return { ok: true, data: fs.readFileSync(path.resolve(p.path), 'utf8').substring(0, 8000) }; } catch (e) { return { ok: false, err: e.message }; } },
-  write_file: async (p) => { try { if (!p.path || typeof p.path !== 'string') return { ok: false, err: 'Invalid path' }; const resolved = path.resolve(p.path); if (resolved.match(/^\/etc\/|^\/proc\/|^\/sys\//)) return { ok: false, err: 'Protected path' }; fs.mkdirSync(path.dirname(resolved), { recursive: true }); fs.writeFileSync(resolved, p.content); return { ok: true }; } catch (e) { return { ok: false, err: e.message }; } },
-  run_cmd: async (p) => { try { if (!p.cmd || typeof p.cmd !== 'string') return { ok: false, err: 'Invalid command' }; return { ok: true, data: execFileSync('sh', ['-c', p.cmd], { timeout: 30000, maxBuffer: 1024 * 1024 }).toString().substring(0, 5000) }; } catch (e) { return { ok: false, err: e.message }; } },
-  web_fetch: async (p) => { try { if (!p.url || typeof p.url !== 'string' || !p.url.startsWith('http')) return { ok: false, err: 'Invalid URL' }; return { ok: true, data: execFileSync('curl', ['-sL', p.url, '--max-time', '15'], { timeout: 20000 }).toString().substring(0, 5000) }; } catch (e) { return { ok: false, err: e.message }; } },
-  git_status: async (p) => { try { return { ok: true, data: execFileSync('git', ['status'], { cwd: path.resolve(p.dir || '.'), timeout: 10000 }).toString() }; } catch (e) { return { ok: false, err: e.message }; } },
-  git_commit: async (p) => { try { execFileSync('git', ['add', '.'], { cwd: path.resolve(p.dir || '.'), timeout: 10000 }); return { ok: true, data: execFileSync('git', ['commit', '-m', p.msg], { cwd: path.resolve(p.dir || '.'), timeout: 10000 }).toString() }; } catch (e) { return { ok: false, err: e.message }; } },
+  read_file: async (p) => {
+    try {
+      if (!p.path) return { ok: false, err: 'Invalid path' };
+      return { ok: true, data: fs.readFileSync(path.resolve(p.path), 'utf8').substring(0, 8000) };
+    } catch (e) { return { ok: false, err: 'Read failed' }; }
+  },
+  write_file: async (p) => {
+    try {
+      if (!p.path) return { ok: false, err: 'Invalid path' };
+      const resolved = path.resolve(p.path);
+      const home = os.homedir();
+      const BLOCKED = ['/etc/', '/proc/', '/sys/', '/root/', '/boot/', '/dev/', `${home}/.ssh`, `${home}/.bashrc`, `/bin/`, `/sbin/`];
+      if (BLOCKED.some(b => resolved.startsWith(b))) return { ok: false, err: 'Protected path' };
+      fs.mkdirSync(path.dirname(resolved), { recursive: true });
+      fs.writeFileSync(resolved, p.content);
+      return { ok: true };
+    } catch (e) { return { ok: false, err: 'Write failed' }; }
+  },
+  run_cmd: async (p) => {
+    try {
+      if (!p.cmd) return { ok: false, err: 'Invalid command' };
+      const baseCmd = p.cmd.trim().split(/\s+/)[0];
+      if (!ALLOWED_COMMANDS.includes(baseCmd)) return { ok: false, err: `Command '${baseCmd}' not allowed` };
+      return { ok: true, data: execFileSync('sh', ['-c', p.cmd], { timeout: 30000 }).toString().substring(0, 5000) };
+    } catch (e) { return { ok: false, err: 'Command failed' }; }
+  },
+  git_status: async (p) => {
+    try {
+      return { ok: true, data: execFileSync('git', ['status'], { cwd: path.resolve(p.dir||'.') }).toString() };
+    } catch (e) { return { ok: false, err: 'Git failed' }; }
+  },
+  git_commit: async (p) => {
+    try {
+      const safeMsg = (p.msg || 'update').replace(/[^a-zA-Z0-9 ._-]/g, '').substring(0, 72);
+      execFileSync('git', ['add', '.'], { cwd: path.resolve(p.dir||'.') });
+      return { ok: true, data: execFileSync('git', ['commit', '-m', safeMsg], { cwd: path.resolve(p.dir||'.') }).toString() };
+    } catch (e) { return { ok: false, err: 'Commit failed' }; }
+  },
   memory_save: async (p) => { memory.save(p.key, p.value); return { ok: true }; },
   memory_load: async (p) => { return { ok: true, data: memory.load(p.key) }; },
-  memory_search: async (p) => { return { ok: true, data: memory.search(p.query) }; },
-  list_files: async (p) => { try { return { ok: true, data: execFileSync('ls', ['-la', path.resolve(p.dir || '.')], { timeout: 10000 }).toString() }; } catch (e) { return { ok: false, err: e.message }; } },
-  brain_score: async (p) => {
-    const input = p.input || '';
-    let score = 50;
-    if (input.includes('error') || input.includes('fail')) score -= 20;
-    if (input.length > 100) score += 10;
-    if (input.includes('success') || input.includes('ok')) score += 15;
-    return { ok: true, data: { score: Math.min(100, Math.max(0, score)), note: 'Heuristic scoring (set HF_TOKEN for TRIBE v2)' } };
+  list_files: async (p) => {
+    try {
+      return { ok: true, data: execFileSync('ls', ['-la', path.resolve(p.dir||'.')]).toString() };
+    } catch (e) { return { ok: false, err: 'List failed' }; }
   },
+  brain_score: async (p) => {
+    return { ok: true, data: { score: null, note: 'Real scoring requires HF_TOKEN.' } };
+  }
 };
 
 async function agent(prompt) {
   if (!prompt?.trim()) return 'Provide a prompt.';
-  if (!process.env.OPENROUTER_API_KEY) return 'OPENROUTER_API_KEY required. Get free key at openrouter.ai';
-
-  const client = new OpenAI({
-    baseURL: CONFIG.localBackend || CONFIG.openrouter,
-    apiKey: process.env.OPENROUTER_API_KEY,
-    defaultHeaders: { 'X-Title': 'OpenClaude Code' },
-  });
-
-  const messages = [
-    { role: 'system', content: SYSTEM_PROMPT },
-    { role: 'user', content: prompt },
-  ];
-
+  if (!process.env.OPENROUTER_API_KEY) return 'OPENROUTER_API_KEY required.';
+  const client = getClient();
+  const messages = [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: prompt }];
   for (let i = 0; i < 12; i++) {
     try {
       const completion = await client.chat.completions.create({
@@ -79,29 +134,31 @@ async function agent(prompt) {
         messages,
         tools,
         tool_choice: 'auto',
-        max_tokens: CONFIG.maxTokens,
+        max_tokens: CONFIG.maxTokens
       });
       const msg = completion.choices[0].message;
       messages.push(msg);
-
       if (msg.tool_calls) {
         for (const call of msg.tool_calls) {
-          const fnName = call.function.name;
+          const fn = call.function.name;
+          if (!toolHandlers[fn]) {
+            messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify({ ok: false, err: 'Unknown tool' }) });
+            continue;
+          }
           const args = JSON.parse(call.function.arguments);
-          const result = await toolHandlers[fnName](args);
+          const result = await toolHandlers[fn](args);
           messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify(result) });
         }
-        continue;
+      } else {
+        return msg.content;
       }
-      return msg.content;
-    } catch (e) { return 'Error: ' + e.message; }
+    } catch (e) { return `Error: ${e.message}`; }
   }
-  return 'Max iterations — break task into smaller steps.';
+  return 'Max iterations reached.';
 }
 
 if (require.main === module) {
-  const prompt = process.argv.slice(2).join(' ');
-  agent(prompt).then(console.log).catch(console.error);
+  agent(process.argv.slice(2).join(' ')).then(console.log).catch(console.error);
 }
 
-module.exports = { agent, tools: toolHandlers, testTribe: () => toolHandlers.brain_score({ input: 'console.log("test")' }) };
+module.exports = { agent };
