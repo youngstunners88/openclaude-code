@@ -1,5 +1,12 @@
--e 
-.env
-memory/
 node_modules/
-memory/
+.env
+*.log
+.DS_Store
+dist/
+coverage/
+memory.json
+config.json
+.vscode/
+.idea/
+*.tmp
+*.temp
