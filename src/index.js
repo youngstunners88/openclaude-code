@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 const OpenAI = require('openai');
 const fs = require('fs');
 const path = require('path');

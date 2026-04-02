@@ -4,9 +4,9 @@ node_modules/
 .DS_Store
 dist/
 coverage/
-memory.json
-config.json
+memory/
 .vscode/
 .idea/
 *.tmp
 *.temp
+*.jsonl
