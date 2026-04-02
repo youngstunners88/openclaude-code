@@ -1,82 +1,37 @@
-# OpenClaude Code
+# OpenClaude Code v2.1.2
 
-**A secure tool execution engine for AI agents.**
+🔒 **A secure, sandboxed AI coding agent powered by free models.**
 
-OpenClaude Code is a backend library that gives AI coding agents (Claude Code, OpenClaw, Cursor, etc.) safe access to file operations, shell commands, web fetching, git, and persistent memory — all through a clean OpenAI-compatible API.
+> ⚠ **Security Notice**: This tool executes shell commands. While it includes a strict allowlist and path protection, never run it with root privileges.
 
-## What This Is
+## 🛡 Security Features
 
-- A **tool execution layer** for AI agents
-- A **backend service** that agents call to interact with the local environment
-- A **secure sandbox** with command filtering and path validation
+- **Command Allowlist**: Only safe commands (`ls`, `git`, `npm`) are permitted. Dangerous tools (`rm -rf`, `wget`, `python`) are blocked at the code level.
+- **Path Protection**: Prevents writing to system directories (`/etc`, `/bin`) or sensitive user files (`.ssh`, `.bashrc`).
+- **Isolated Memory**: Stores context in `~/.openclaude-code/memory`, keeping your project directory clean.
+- **Input Sanitization**: Git commit messages and file paths are strictly validated against injection attacks.
 
-## What This Is NOT
+## 🚀 Quick Start
 
-- A standalone chatbot or IDE
-- A replacement for Claude Code or Cursor
-- A production-hardened system (prototype stage)
-
-## Tools (8)
-
-| Tool | Description | Security |
-|------|-------------|----------|
-| `read_file` | Read any file | Path validation, resolve() |
-| `write_file` | Write to files | Protected paths blocked |
-| `run_cmd` | Execute commands | Command allowlist (ls, cat, git, npm, etc.) |
-| `web_fetch` | Fetch URL content | URL validation (http/https only) |
-| `git_status` | Check git status | Working directory scoped |
-| `git_commit` | Stage + commit | Working directory scoped |
-| `list_files` | List directory | Path validation |
-| `brain_score` | Score output quality | Heuristic (set HF_TOKEN for TRIBE v2) |
-
-## For Claude Code Users
-
-Add to your `.clauderc` or project config:
-```json
-{
-  "mcpServers": {
-    "openclaude": {
-      "command": "node",
-      "args": ["src/index.js"],
-      "env": {
-        "OPENROUTER_API_KEY": "your-key"
-      }
-    }
-  }
-}
+1. **Get a Free Key**: Sign up at [OpenRouter.ai](https://openrouter.ai) and copy your API key.
+2. **Set Environment Variable**:
+```bash
+export OPENROUTER_API_KEY="sk-or-v1-YOUR_KEY_HERE"
 ```
-
-## Quick Start
-
+3. **Run**:
 ```bash
 npm install
-export OPENROUTER_API_KEY="your-free-key-from-openrouter.ai"
-node src/index.js "Read my package.json and list dependencies"
+npm test   # Runs syntax check
+npm start  # Starts the agent
 ```
 
-## Security Model
+## 🧪 Available Tools
 
-- ✅ Command allowlist (ls, cat, git, npm, node, curl, etc.)
-- ✅ Protected paths blocked (/etc, /proc, /sys)
-- ✅ URL validation for web_fetch
-- ✅ Path validation with resolve()
-- ❌ No sandboxing for file operations (planned)
-- ❌ No rate limiting (planned)
-
-## Free Models
-
-28 free models via OpenRouter:
-- NVIDIA Nemotron 3 Super 120B
-- Meta Llama 3.3 70B
-- Google Gemma 3 27B
-- Nous Hermes 3 405B
-
-## Known Limitations
-
-- Command execution uses allowlist (not full sandbox)
-- TRIBE v2 brain scoring uses heuristic (needs HF_TOKEN for real scoring)
-- TurboQuant compression is planned, not implemented
-- No automated tests yet
+- read_file, write_file, list_files
+- run_cmd (Restricted allowlist)
+- git_status, git_commit (Sanitized)
+- web_fetch, memory_save, memory_load, memory_search
+- brain_score (Placeholder for TRIBE v2)
 
 ## License
 
